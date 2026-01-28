@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 # Slack Libraries
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+from langchain_core.prompts import PromptTemplate
 
 # AI Libraries (The Classic Stack)
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -21,6 +22,25 @@ print("🧠 Initializing AI Components...")
 # We set this to the 3072-dimension model to match your new Pinecone index
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
+
+# --- CUSTOM PROMPT ---
+friendly_template = """You are a helpful and friendly assistant for our team.
+Use the following pieces of context to answer the question at the end.
+If the answer is not in the context, or if the user is just saying hello,
+use your general knowledge to be helpful and polite.
+Do NOT just say "I don't know" if it's a simple greeting.
+
+Context:
+{context}
+
+Question: {question}
+Helpful Answer:"""
+
+PROMPT = PromptTemplate(
+    template=friendly_template, 
+    input_variables=["context", "question"]
+)
+
 # B. Vector Store
 vectorstore = PineconeVectorStore(
     index_name=os.getenv("PINECONE_INDEX_NAME"),
@@ -33,11 +53,13 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 
 # D. The Chain (Classic RetrievalQA)
 # This automatically handles the "prompt" and "stuffing" documents for you
+# D. The Chain (Classic RetrievalQA)
 qa_chain = RetrievalQA.from_chain_type(
     llm=llm,
     chain_type="stuff",
     retriever=retriever,
-    return_source_documents=True # We need this to get the source URLs
+    return_source_documents=True,
+    chain_type_kwargs={"prompt": PROMPT}  # <--- THIS IS THE FIX
 )
 
 # --- 3. Setup Slack Interface ---
