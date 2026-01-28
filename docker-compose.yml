@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  # Service 1: The Bot (Runs 24/7)
+  slack-bot:
+    image: my-slack-bot  # Uses the image we just built
+    build: .             # Or builds it if it's missing
+    container_name: production_bot
+    restart: always      # <--- The Magic: Auto-restart if it crashes
+    env_file:
+      - .env             # Auto-loads your passwords
+    environment:
+      - PYTHONUNBUFFERED=1 # So you can see logs on the server
+
+  # Service 2: Ingestion (Runs only when we ask)
+  ingest-job:
+    image: my-slack-bot # Uses the SAME image (smart reuse!)
+    command: python ingest.py # But runs a DIFFERENT command
+    env_file:
+      - .env
+    profiles: ["tools"] # Keeps it turned off by default
